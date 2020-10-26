@@ -2,12 +2,15 @@
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <set>
 #include <vector>
 
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gtk/gtk.h>
 
 #include <curl/curl.h>
+
+#include <nlohmann/json.hpp>
 
 #include <jfc/icons.h>
 
@@ -86,18 +89,48 @@ void do_request(std::string aTravisToken)
 
         if (curlResult == CURLE_OK)
         {
-            std::cout << "response is ok\n";
+            struct build_info
+            {
+                bool passed;
+
+                std::string timestamp; //TODO: consider a better timestamp representation
+            };
+
+            std::set</*repo name*/std::string, build_info> build_info_set;
+
 
             std::vector<unsigned char> output(chunk.memory, chunk.memory + chunk.size);
 
-            for (const auto a : output)
+            using namespace nlohmann;
+
+            const json root = json::parse(output);
+
+            const auto builds = root["builds"];
+
+            for (const auto &build : builds)
             {
-                std::cout << a;
+                //TODO: 
+                // IF build belongs to a dead repo, skip.
+                // put results in set, KEY name, VALUE {state, timestamp}.
+                // IF pair already exists, compare timestamps, if this timestamp more recent, replace
+
+                // Following should be removed, just dev/debug stuff.
+                const auto state = build["state"];
+
+                if (state == "failed")
+                {
+                    auto slug = build["repository"]["slug"];
+
+                    std::cout << slug << "\n";
+
+                }
             }
         }
         else throw std::runtime_error(std::string("BLAR")
             .append("curl_easy_perform failed: ")
             .append(curl_easy_strerror(curlResult)));
+
+        //TODO: for each result in results, if result.state == failed, {icon == failed;}
 
         curl_easy_cleanup(curl_handle);
 
