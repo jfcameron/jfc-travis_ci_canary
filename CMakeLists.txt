@@ -11,29 +11,41 @@ option(JFC_BUILD_TESTS "Build unit tests" OFF)
 
 add_subdirectory(thirdparty)
 
+# GUI
+FIND_PACKAGE(PkgConfig REQUIRED)
+PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
+
+FIND_PACKAGE(CURL REQUIRED)
+
 jfc_project(executable
     NAME "jfctraviscicanary"
     VERSION 0.0
-    DESCRIPTION "sysicon, alert if error in build list"
+    DESCRIPTION "gtk sysicon, alert if error in recent build list"
     C++_STANDARD 17
     C_STANDARD 90
 
     PUBLIC_INCLUDE_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-#        ${dependencyname_INCLUDE_DIRECTORIES} 
+        ${GTK3_INCLUDE_DIRS}
+        ${CURL_INCLUDE_DIR}
+#       ${dependencyname_INCLUDE_DIRECTORIES} 
 
 
     PRIVATE_INCLUDE_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/include
 
-#    LIBRARIES
-#        ${dependencyname_LIBRARIES} 
+    LIBRARIES
+        ${GTK3_LIBRARIES}
+        ${CURL_LIBRARIES}
+#       ${dependencyname_LIBRARIES} 
 
     SOURCE_LIST
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-error.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-ok.cpp
 
-#    DEPENDENCIES
-#        "dependencyname"
+#   DEPENDENCIES
+#       "dependencyname"
 )
 
 if (JFC_BUILD_TESTS)
@@ -43,3 +55,4 @@ endif()
 if (JFC_BUILD_DOCS)
     add_subdirectory(docs)
 endif()
+
