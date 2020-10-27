@@ -41,7 +41,9 @@ jfc_project(executable
 
     SOURCE_LIST
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-building.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-error.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-no_connection.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-ok.cpp
 
 #   DEPENDENCIES

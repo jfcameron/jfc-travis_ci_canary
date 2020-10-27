@@ -23,10 +23,13 @@ enum class state_type
 {
     succeeded,
     failed,
-    cancelled
+    cancelled,
+    building,
+    disconnected
 };
 
 static void set_tray_icon(state_type state);
+static void set_icon_tooltip(const std::string &aToolTip);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // NOTIFICATION
@@ -53,7 +56,7 @@ using namespace jfc::travis_ci_canary;
 
 void build_failed_notification_behaviour(GSimpleAction*, GVariant*, gpointer)
 {
-    std::cout << "whew\n";
+    std::cout << "TODO: open build page for the corresponding build\n";
 }
 
 notifier::notifier()
@@ -79,6 +82,7 @@ void notifier::notify(const std::string &aSlug, state_type state)
         case state_type::succeeded: g_notification_set_title(m_notification, "succeeded"); break;
         case state_type::cancelled: g_notification_set_title(m_notification, "cancelled"); break;
         case state_type::failed: g_notification_set_title(m_notification, "failed"); break;
+        case state_type::building: g_notification_set_title(m_notification, "building"); break; 
     }
 
     g_notification_set_body(m_notification, aSlug.c_str());
@@ -87,6 +91,7 @@ void notifier::notify(const std::string &aSlug, state_type state)
 }
 
 jfc::travis_ci_canary::notifier *aNotifier;
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // FETCH
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,10 +130,9 @@ static size_t WriteMemoryCallback(void *const contentPointer,
     return 0;
 }
 
-
 void do_request(std::string aTravisToken)
 {
-    std::string aURL("https://api.travis-ci.org/builds?limit=100&sort_by=started_at:desc");
+    std::string aURL("https://api.travis-ci.org/builds?limit=50&sort_by=started_at:desc");
 
     curl_global_init(CURL_GLOBAL_ALL);
 
@@ -160,15 +164,12 @@ void do_request(std::string aTravisToken)
         // perform request
         const CURLcode curlResult = curl_easy_perform(curl_handle);
 
-        std::cout << "performing request\n";
-
         if (curlResult == CURLE_OK)
         {
             struct build_info
             {
                 state_type state;
-                state_type previous_state;
-
+                
                 std::time_t time;
             };
 
@@ -184,12 +185,22 @@ void do_request(std::string aTravisToken)
 
             for (const auto &build : builds)
             {
-                const auto state = build["state"];
-                const auto previous_state = build["previous_state"].is_string()
-                    ? build["previous_state"]
-                    : state;
-                const auto committed_at = build["commit"]["committed_at"];
-                const auto repo_name = build["repository"]["name"];
+                const auto state = build["state"].is_string()
+                    ? std::string(build["state"]) 
+                    : "failed";
+
+                const auto committed_at = build["commit"]["committed_at"].is_string()
+                    ? std::string(build["commit"]["committed_at"])
+                    : "unknown";
+
+                const auto commit_sha = build["commit"]["sha"].is_string()
+                    ? std::string(build["commit"]["sha"])
+                    : "unknown";
+
+                const auto repo_name = build["repository"]["name"].is_string()
+                    ? std::string(build["repository"]["name"])
+                    : "unknown";
+
 
                 // Converting ISO8601 string to std::tm to std::time_t (unix time)
                 int y,M,d,h,m;
@@ -209,51 +220,56 @@ void do_request(std::string aTravisToken)
                 time.tm_sec = static_cast<int>(s); // 0-60
 
                 std::time_t unix_time = std::mktime(&time);
-
+        
                 // Insert this data IF it is more recent than what is already there
                 auto search = build_info_set.find(std::string(repo_name)); 
 
-                if (search == build_info_set.end() || search->second.time < unix_time)
+                if (search == build_info_set.end())
                 {
-                    build_info_set[std::string(repo_name)] = {
+                    build_info newinfo = {
                         [](std::string aState)
                         {
                             if (aState == "passed") return state_type::succeeded;
                             if (aState == "failed") return state_type::failed;
+                            if (aState == "errored") return state_type::failed;
                             if (aState == "cancelled") return state_type::cancelled;
                             if (aState == "canceled") return state_type::cancelled;
+                            if (aState == "created") return state_type::building;
+                            if (aState == "started") return state_type::building;
 
                             throw std::invalid_argument(std::string("unhandled state type: ").append(aState));
                         }(std::string(state)),
 
-                        [](std::string aState)
-                        {
-                            if (aState == "passed") return state_type::succeeded;
-                            if (aState == "failed") return state_type::failed;
-                            if (aState == "cancelled") return state_type::cancelled;
-                            if (aState == "canceled") return state_type::cancelled;
-
-                            throw std::invalid_argument(std::string("unhandled state type: ").append(aState));
-                        }(std::string(state)),//previous_state)),
-
                         unix_time
                     };
+
+                    build_info_set[std::string(repo_name)] = newinfo;
                 }
             }
 
-            //visitor functor?
+            state_type state = state_type::succeeded;
+
+            for (const auto &[key, value] : build_info_set)
             {
-                auto state = state_type::failed;
-
-                for (const auto &[key, value] : build_info_set)
+                if (value.state == state_type::building) 
                 {
-                    state = value.state;
-                
-                    if (value.state != value.previous_state) aNotifier->notify(key, value.state);
+                    state = state_type::building;
                 }
-                
-                set_tray_icon(state);
+                else if (value.state == state_type::failed) 
+                {
+                    state = state_type::failed;
+
+                    std::cout << key << "failed\n";
+
+                    break;
+                }
             }
+
+            if (state == state_type::succeeded) set_icon_tooltip("all builds succeeded");
+            else if (state == state_type::building) set_icon_tooltip("building");
+            else if (state == state_type::failed) set_icon_tooltip("a build has failed");
+
+            set_tray_icon(state);
         }
         else throw std::runtime_error(std::string("BLAR")
             .append("curl_easy_perform failed: ")
@@ -277,8 +293,6 @@ static bool update(GtkStatusIcon *tray_icon)
 
     do_request(aTravisToken);
 
-    std::cout << "ping\n";
-
     return true;
 }
 
@@ -297,7 +311,6 @@ static void create_tray_icon()
 
     set_tray_icon(state_type::failed);
 
-    gtk_status_icon_set_tooltip_text (tray_icon, "travis-ci canary");
     gtk_status_icon_set_visible (tray_icon, TRUE);
 
     update(tray_icon);
@@ -312,13 +325,30 @@ static void create_tray_icon()
         NULL);
 }
 
+static void set_icon_tooltip(const std::string &aToolTip)
+{
+    gtk_status_icon_set_tooltip_text (tray_icon, aToolTip.c_str());
+}
+
 static void set_tray_icon(state_type state)
 {
     switch (state)
     {
-        case(state_type::succeeded): gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_ok_icon_image()); break;
-        case(state_type::cancelled): gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_ok_icon_image()); break;
-        case(state_type::failed):    gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_error_icon_image()); break;
+        case(state_type::failed): 
+            gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_error_icon_image()); 
+            break;
+
+        case(state_type::building): 
+            gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_building_icon_image()); 
+            break;
+        
+        case(state_type::succeeded): 
+            gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_ok_icon_image());
+            break;
+
+        case(state_type::disconnected): 
+            gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_disconnected_icon_image()); 
+            break;
 
         default: throw std::invalid_argument("set_tray_icon, unhandled state");
     }
