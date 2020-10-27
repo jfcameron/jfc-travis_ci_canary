@@ -1,15 +1,17 @@
 // © 2020 Joseph Cameron - All Rights Reserved
+#include <chrono>
 #include <cstdlib>
+#include <ctime>
+#include <iomanip>
 #include <iostream>
+#include <locale>
 #include <map>
 #include <set>
+#include <sstream>
 #include <vector>
 
-#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gtk/gtk.h>
-
 #include <curl/curl.h>
-
 #include <nlohmann/json.hpp>
 
 #include <jfc/icons.h>
@@ -53,7 +55,7 @@ static size_t WriteMemoryCallback(void *const contentPointer,
 
 void do_request(std::string aTravisToken)
 {
-    std::string aURL("https://api.travis-ci.org/builds");
+    std::string aURL("https://api.travis-ci.org/builds?limit=50&sort_by=started_at:desc");
 
     curl_global_init(CURL_GLOBAL_ALL);
 
@@ -93,11 +95,10 @@ void do_request(std::string aTravisToken)
             {
                 bool passed;
 
-                std::string timestamp; //TODO: consider a better timestamp representation
+                std::time_t time;
             };
 
-            std::set</*repo name*/std::string, build_info> build_info_set;
-
+            std::unordered_map</*repo name*/std::string, build_info> build_info_set;
 
             std::vector<unsigned char> output(chunk.memory, chunk.memory + chunk.size);
 
@@ -109,28 +110,55 @@ void do_request(std::string aTravisToken)
 
             for (const auto &build : builds)
             {
-                //TODO: 
-                // IF build belongs to a dead repo, skip.
-                // put results in set, KEY name, VALUE {state, timestamp}.
-                // IF pair already exists, compare timestamps, if this timestamp more recent, replace
-
-                // Following should be removed, just dev/debug stuff.
                 const auto state = build["state"];
+                const auto committed_at = build["commit"]["committed_at"];
+                const auto repo_name = build["repository"]["name"];
 
-                if (state == "failed")
+                // Converting ISO8601 string to std::tm to std::time_t (unix time)
+                int y,M,d,h,m;
+                float s;
+
+                sscanf(std::string(committed_at).c_str(), 
+                    "%d-%d-%dT%d:%d:%fZ", 
+                    &y, &M, &d, &h, &m, &s);
+
+                std::tm time;
+    
+                time.tm_year = y - 1900; // Year since 1900
+                time.tm_mon = M - 1; // 0-11
+                time.tm_mday = d; // 1-31
+                time.tm_hour = h; // 0-23
+                time.tm_min = m; // 0-59
+                time.tm_sec = static_cast<int>(s); // 0-60
+
+                //std::cout << std::string(repo_name) << ": " << std::string(committed_at) << "\n";
+
+                std::time_t unix_time = std::mktime(&time);
+
+                // Insert this data IF it is more recent than what is already there
+                auto search = build_info_set.find(std::string(repo_name)); 
+
+                if (search == build_info_set.end() || search->second.time < unix_time)
                 {
-                    auto slug = build["repository"]["slug"];
+                    build_info_set.insert({std::string(repo_name),
+                        {
+                            std::string(state) != "failed",
 
-                    std::cout << slug << "\n";
-
+                            unix_time
+                        }
+                    });
                 }
             }
+
+            /*for (auto &build : build_info_set)
+            {
+                std::cout << build.first << ", ";
+                std::cout << build.second.time << "\n";
+            }*/
         }
         else throw std::runtime_error(std::string("BLAR")
             .append("curl_easy_perform failed: ")
             .append(curl_easy_strerror(curlResult)));
-
-        //TODO: for each result in results, if result.state == failed, {icon == failed;}
 
         curl_easy_cleanup(curl_handle);
 
@@ -138,7 +166,7 @@ void do_request(std::string aTravisToken)
     }
     else throw std::runtime_error(std::string("BLAR").append("Failed to initialize a curl session."));
 
-    curl_global_cleanup();  // MOVE TO A CURL WRAPPER
+    curl_global_cleanup();
 }
 
 ////
@@ -185,6 +213,11 @@ static void create_tray_icon()
         NULL);
 }
 
+void launch_application(GSimpleAction*, GVariant*, gpointer)
+{
+    std::cout << "whew\n";
+}
+
 int main(int argc, char *argv[])
 {
     if (argc < 2) throw std::invalid_argument("need 1 arg: the travis token");
@@ -195,6 +228,29 @@ int main(int argc, char *argv[])
 
     create_tray_icon();
 
+    //notification init
+    auto app = g_application_new("jfcameron.github.travis_ci_canary", G_APPLICATION_FLAGS_NONE);
+    g_application_register(app, nullptr, nullptr);
+
+    static GActionEntry actions[] = {
+        { "build.failed", launch_application}
+    };
+
+    g_action_map_add_action_entries (G_ACTION_MAP (app),
+            actions, G_N_ELEMENTS (actions),
+            app);
+
+    GNotification *notification = g_notification_new("Build failed");
+    g_notification_set_default_action(notification, "app.build.failed");
+
+
+    //example notification sending
+    g_notification_set_body(notification, "repo/slug");
+    g_application_send_notification(app, "blar", notification);
+
+    g_notification_set_body(notification, "goober");
+    g_application_send_notification(app, "blar", notification);
+    
     gtk_main();
 
     return EXIT_SUCCESS;
