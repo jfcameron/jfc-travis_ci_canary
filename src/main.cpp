@@ -16,8 +16,80 @@
 
 #include <jfc/icons.h>
 
-///// move to separate file, state that can be reused (ie the request) move to class members, or at least a static
+// prog param. once ooed, pass this around on stack, dont use a global.
+std::string aTravisToken;
 
+enum class state_type
+{
+    succeeded,
+    failed,
+    cancelled
+};
+
+static void set_tray_icon(state_type state);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTIFICATION
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//TODO: not an object. decompose. move work to cpp file, header <jfc/canary/notification.h>
+namespace jfc::travis_ci_canary
+{
+    /// \brief notification facility for the project
+    class notifier final
+    {
+        GApplication *m_app;
+
+        GNotification *m_notification;
+    public:
+        /// \brief notify the user of a build failure for a given repo
+        void notify(const std::string &aRepoURL, state_type state);
+
+        /// \brief ctor
+        notifier();
+    };
+}
+
+using namespace jfc::travis_ci_canary;
+
+void build_failed_notification_behaviour(GSimpleAction*, GVariant*, gpointer)
+{
+    std::cout << "whew\n";
+}
+
+notifier::notifier()
+: m_app(g_application_new("jfcameron.github.travis_ci_canary", G_APPLICATION_FLAGS_NONE))
+, m_notification(g_notification_new("Build failed"))
+{
+    g_application_register(m_app, nullptr, nullptr);
+
+    static const GActionEntry ACTIONS[] = {
+        { "build.failed", build_failed_notification_behaviour}
+    };
+
+    g_action_map_add_action_entries (G_ACTION_MAP (m_app), ACTIONS, 
+        G_N_ELEMENTS (ACTIONS), m_app);
+    
+    g_notification_set_default_action(m_notification, "app.build.failed");
+}
+
+void notifier::notify(const std::string &aSlug, state_type state)
+{
+    switch (state)
+    {
+        case state_type::succeeded: g_notification_set_title(m_notification, "succeeded"); break;
+        case state_type::cancelled: g_notification_set_title(m_notification, "cancelled"); break;
+        case state_type::failed: g_notification_set_title(m_notification, "failed"); break;
+    }
+
+    g_notification_set_body(m_notification, aSlug.c_str());
+
+    g_application_send_notification(m_app, "notification", m_notification);
+}
+
+jfc::travis_ci_canary::notifier *aNotifier;
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// FETCH
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Buffer in system memory, used to store binary data fetched from remote server
 struct MemoryStruct 
 {
@@ -53,9 +125,10 @@ static size_t WriteMemoryCallback(void *const contentPointer,
     return 0;
 }
 
+
 void do_request(std::string aTravisToken)
 {
-    std::string aURL("https://api.travis-ci.org/builds?limit=50&sort_by=started_at:desc");
+    std::string aURL("https://api.travis-ci.org/builds?limit=100&sort_by=started_at:desc");
 
     curl_global_init(CURL_GLOBAL_ALL);
 
@@ -93,7 +166,8 @@ void do_request(std::string aTravisToken)
         {
             struct build_info
             {
-                bool passed;
+                state_type state;
+                state_type previous_state;
 
                 std::time_t time;
             };
@@ -111,6 +185,9 @@ void do_request(std::string aTravisToken)
             for (const auto &build : builds)
             {
                 const auto state = build["state"];
+                const auto previous_state = build["previous_state"].is_string()
+                    ? build["previous_state"]
+                    : state;
                 const auto committed_at = build["commit"]["committed_at"];
                 const auto repo_name = build["repository"]["name"];
 
@@ -131,8 +208,6 @@ void do_request(std::string aTravisToken)
                 time.tm_min = m; // 0-59
                 time.tm_sec = static_cast<int>(s); // 0-60
 
-                //std::cout << std::string(repo_name) << ": " << std::string(committed_at) << "\n";
-
                 std::time_t unix_time = std::mktime(&time);
 
                 // Insert this data IF it is more recent than what is already there
@@ -140,21 +215,45 @@ void do_request(std::string aTravisToken)
 
                 if (search == build_info_set.end() || search->second.time < unix_time)
                 {
-                    build_info_set.insert({std::string(repo_name),
+                    build_info_set[std::string(repo_name)] = {
+                        [](std::string aState)
                         {
-                            std::string(state) != "failed",
+                            if (aState == "passed") return state_type::succeeded;
+                            if (aState == "failed") return state_type::failed;
+                            if (aState == "cancelled") return state_type::cancelled;
+                            if (aState == "canceled") return state_type::cancelled;
 
-                            unix_time
-                        }
-                    });
+                            throw std::invalid_argument(std::string("unhandled state type: ").append(aState));
+                        }(std::string(state)),
+
+                        [](std::string aState)
+                        {
+                            if (aState == "passed") return state_type::succeeded;
+                            if (aState == "failed") return state_type::failed;
+                            if (aState == "cancelled") return state_type::cancelled;
+                            if (aState == "canceled") return state_type::cancelled;
+
+                            throw std::invalid_argument(std::string("unhandled state type: ").append(aState));
+                        }(std::string(state)),//previous_state)),
+
+                        unix_time
+                    };
                 }
             }
 
-            /*for (auto &build : build_info_set)
+            //visitor functor?
             {
-                std::cout << build.first << ", ";
-                std::cout << build.second.time << "\n";
-            }*/
+                auto state = state_type::failed;
+
+                for (const auto &[key, value] : build_info_set)
+                {
+                    state = value.state;
+                
+                    if (value.state != value.previous_state) aNotifier->notify(key, value.state);
+                }
+                
+                set_tray_icon(state);
+            }
         }
         else throw std::runtime_error(std::string("BLAR")
             .append("curl_easy_perform failed: ")
@@ -169,9 +268,9 @@ void do_request(std::string aTravisToken)
     curl_global_cleanup();
 }
 
-////
-std::string aTravisToken;
-
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// SYSICON
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static bool update(GtkStatusIcon *tray_icon)
 {
     if (!tray_icon) return false;
@@ -190,20 +289,20 @@ static void icon_clicked()
     system("xdg-open https://travis-ci.org/github/jfcameron");
 }
 
+GtkStatusIcon *tray_icon;
+
 static void create_tray_icon()
 {
-    GtkStatusIcon *tray_icon = gtk_status_icon_new();
+    tray_icon = gtk_status_icon_new();
 
-    auto pixbuf = jfc::get_error_icon_image(); 
-
-    gtk_status_icon_set_from_pixbuf(tray_icon, pixbuf);
+    set_tray_icon(state_type::failed);
 
     gtk_status_icon_set_tooltip_text (tray_icon, "travis-ci canary");
     gtk_status_icon_set_visible (tray_icon, TRUE);
 
     update(tray_icon);
 
-    g_timeout_add_seconds(30,
+    g_timeout_add_seconds(15,
         reinterpret_cast<GSourceFunc>(update),
         reinterpret_cast<gpointer>(tray_icon));
 
@@ -213,11 +312,21 @@ static void create_tray_icon()
         NULL);
 }
 
-void launch_application(GSimpleAction*, GVariant*, gpointer)
+static void set_tray_icon(state_type state)
 {
-    std::cout << "whew\n";
+    switch (state)
+    {
+        case(state_type::succeeded): gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_ok_icon_image()); break;
+        case(state_type::cancelled): gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_ok_icon_image()); break;
+        case(state_type::failed):    gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_error_icon_image()); break;
+
+        default: throw std::invalid_argument("set_tray_icon, unhandled state");
+    }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// PROGRAM ENTRY
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[])
 {
     if (argc < 2) throw std::invalid_argument("need 1 arg: the travis token");
@@ -226,31 +335,10 @@ int main(int argc, char *argv[])
 
     gtk_init(&argc, &argv);
 
+    aNotifier = new jfc::travis_ci_canary::notifier();
+
     create_tray_icon();
-
-    //notification init
-    auto app = g_application_new("jfcameron.github.travis_ci_canary", G_APPLICATION_FLAGS_NONE);
-    g_application_register(app, nullptr, nullptr);
-
-    static GActionEntry actions[] = {
-        { "build.failed", launch_application}
-    };
-
-    g_action_map_add_action_entries (G_ACTION_MAP (app),
-            actions, G_N_ELEMENTS (actions),
-            app);
-
-    GNotification *notification = g_notification_new("Build failed");
-    g_notification_set_default_action(notification, "app.build.failed");
-
-
-    //example notification sending
-    g_notification_set_body(notification, "repo/slug");
-    g_application_send_notification(app, "blar", notification);
-
-    g_notification_set_body(notification, "goober");
-    g_application_send_notification(app, "blar", notification);
-    
+   
     gtk_main();
 
     return EXIT_SUCCESS;
