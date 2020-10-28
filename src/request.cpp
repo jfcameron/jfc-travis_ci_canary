@@ -1,5 +1,6 @@
 // © 2020 Joseph Cameron - All Rights Reserved
 
+#include <jfc/travis_ci_canary/config.h>
 #include <jfc/travis_ci_canary/request.h>
 
 #include <cstdlib>
@@ -7,44 +8,27 @@
 #include <map>
 #include <stdexcept>
 #include <vector>
+#include <memory>
+#include <iostream>
+#include <iterator>
 
 #include <curl/curl.h>
 
 using namespace jfc::travis_ci_canary::request;
+using namespace jfc::travis_ci_canary;
 
-// buffer used to store binary data fetched from remote server
-struct MemoryStruct 
-{
-    char *memory;
-    size_t size;
-};
-
-static size_t WriteMemoryCallback(void *const contentPointer, 
+static size_t WriteMemoryCallback(unsigned char *const contentPointer, 
     const size_t contentItemSize, 
     const size_t contentItemCount, 
     void *const userPointer)
 {
     const size_t contentByteCount(contentItemSize * contentItemCount);
 
-    auto pResponseBuffer(static_cast<struct MemoryStruct *const>(userPointer));
+    auto pResponseBuffer(static_cast<response_data_type *const>(userPointer));
 
-    return [&contentPointer, &contentByteCount, &pResponseBuffer]()
-    {
-        if ((pResponseBuffer->memory = static_cast<char *>(realloc(pResponseBuffer->memory, 
-            pResponseBuffer->size + contentByteCount + 1))) == nullptr)
-            throw std::runtime_error(std::string(
-                "gdk::resources::remote fetch failed: could not allocate system memory to store fetched content!"));
+    pResponseBuffer->insert(pResponseBuffer->end(), contentPointer, contentPointer + contentByteCount);
 
-        std::memcpy(&(pResponseBuffer->memory[pResponseBuffer->size]), contentPointer, contentByteCount);
-
-        pResponseBuffer->size += contentByteCount;
-
-        pResponseBuffer->memory[pResponseBuffer->size] = {0};
-
-        return contentByteCount;
-    }();
-    
-    return 0;
+    return contentByteCount;
 }
 
 static CURL *curl_handle;
@@ -55,11 +39,28 @@ static void init_once()
 
     if (once)
     {
+        once = false;
+
+        // Init libcurl
         curl_global_init(CURL_GLOBAL_ALL);
-    
+   
+        // Create handle for builds request
         curl_handle = curl_easy_init();
 
-        once = false;
+        if (!curl_handle) throw std::runtime_error("Failed to initialize a curl session.");
+
+        // Configure the builds request
+        std::string aURL("https://api.travis-ci.org/builds?limit=25&sort_by=started_at:desc");
+
+        curl_easy_setopt(curl_handle, CURLOPT_URL, aURL.c_str());
+        curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+
+        curl_slist *headerlist = curl_slist_append(nullptr, "Travis-API-Version: 3");
+        headerlist = curl_slist_append(headerlist, 
+            std::string(std::string("Authorization: token ") + config::aTravisToken).c_str());
+        curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headerlist);
+
+        curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
     }
 }
 
@@ -69,43 +70,16 @@ void jfc::travis_ci_canary::request::builds(std::string aTravisToken,
 {
     init_once();
 
-    std::string aURL("https://api.travis-ci.org/builds?limit=25&sort_by=started_at:desc");
+    response_data_type buffer;
+    
+    // provide a new memory buffer to the writefunction registered in init_once
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, reinterpret_cast<void *>(&buffer)); 
 
-    if (curl_handle)
-    {
-        struct MemoryStruct chunk = (MemoryStruct)
-        {
-            .memory = []()
-            {
-                if (auto pHeap = static_cast<char *>(std::malloc(1))) return pHeap;
-                else throw std::runtime_error("could not allocate space on the heap");
-            }(),
-            .size = 0
-        };
+    // perform request
+    const CURLcode curlResult = curl_easy_perform(curl_handle);
 
-        // Configure the request
-        curl_easy_setopt(curl_handle, CURLOPT_URL, aURL.c_str());
-        curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
-
-        curl_slist *headerlist = curl_slist_append(NULL, "Travis-API-Version: 3");
-        headerlist = curl_slist_append(headerlist, 
-            std::string(std::string("Authorization: token ") + aTravisToken).c_str());
-        curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headerlist);
-
-        curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback); // send all data to this function
-        curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, 
-            reinterpret_cast<void *>(&chunk)); // send the memory buffer to the function
-
-        // perform request
-        const CURLcode curlResult = curl_easy_perform(curl_handle);
-
-        // call appropriate response
-        if (curlResult == CURLE_OK)
-            aHandler(std::vector<unsigned char>(chunk.memory, chunk.memory + chunk.size));
-        else aFailedHandler();
-
-        free(chunk.memory);
-    }
-    else throw std::runtime_error("Failed to initialize a curl session.");
+    // call appropriate response functor
+    if (curlResult == CURLE_OK) aHandler(buffer);
+    else aFailedHandler();
 }
 

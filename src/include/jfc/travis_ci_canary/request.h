@@ -11,8 +11,10 @@
 /// \brief functions used to interact with the travis-ci api
 namespace jfc::travis_ci_canary::request
 {
+    using response_data_type = std::vector<unsigned char>;
+
     /// \brief functor type for handling successful requests
-    using response_handler_type = std::function<void(std::vector<unsigned char>)>;
+    using response_handler_type = std::function<void(response_data_type)>;
     
     /// \brief functor type for handling failed requests
     using failed_handler_type = std::function<void()>;

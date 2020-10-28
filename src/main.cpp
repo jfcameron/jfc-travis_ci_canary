@@ -7,6 +7,7 @@
 #include <gtk/gtk.h>
 #include <nlohmann/json.hpp>
 
+#include <jfc/travis_ci_canary/config.h>
 #include <jfc/travis_ci_canary/enums.h>
 #include <jfc/travis_ci_canary/icon.h>
 #include <jfc/travis_ci_canary/notification.h>
@@ -151,6 +152,7 @@ int main(int argc, char *argv[])
     if (argc < 2) throw std::invalid_argument("need 1 arg: the travis token");
 
     std::string travisToken = argv[1];
+    config::aTravisToken = travisToken;
 
     gtk_init(&argc, &argv);
 

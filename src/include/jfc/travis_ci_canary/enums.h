@@ -1,9 +1,7 @@
-// \brief a temporary file containing global code, used to aid in refactor.
-
 // © 2020 Joseph Cameron - All Rights Reserved
 
-#ifndef DELTE_MEDELETEME
-#define DELTE_MEDELETEME
+#ifndef JFC_TRAVIS_CI_CANARY_ENUMS_H
+#define JFC_TRAVIS_CI_CANARY_ENUMS_H
 
 #include <string>
 
