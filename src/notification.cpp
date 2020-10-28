@@ -14,7 +14,7 @@ static GNotification *pNotification;
 
 void static build_failed_notification_behaviour(GSimpleAction*, GVariant*, gpointer)
 {
-    std::cout << "TODO: open build page for the corresponding build\n";
+    //TODO: open build page for the project?
 }
 
 void static init_once()
@@ -50,16 +50,16 @@ void static init_once()
     });
 }
 
-void jfc::travis_ci_canary::notify::build_state_changed(const std::string &aSlug, state_type state)
+void jfc::travis_ci_canary::notify::build_state_changed(const std::string &aSlug, build_state_type state)
 {
     init_once();
 
     switch (state)
     {
-        case state_type::succeeded: g_notification_set_title(pNotification, "succeeded"); break;
-        case state_type::cancelled: g_notification_set_title(pNotification, "cancelled"); break;
-        case state_type::failed: g_notification_set_title(pNotification, "failed"); break;
-        case state_type::building: g_notification_set_title(pNotification, "building"); break; 
+        case build_state_type::succeeded: g_notification_set_title(pNotification, "succeeded"); break;
+        case build_state_type::cancelled: g_notification_set_title(pNotification, "cancelled"); break;
+        case build_state_type::failed: g_notification_set_title(pNotification, "failed"); break;
+        case build_state_type::building: g_notification_set_title(pNotification, "building"); break; 
     }
 
     g_notification_set_body(pNotification, aSlug.c_str());

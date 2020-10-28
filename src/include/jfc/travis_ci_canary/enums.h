@@ -7,23 +7,19 @@
 
 #include <string>
 
-enum class state_type
+enum class build_state_type
 {
     succeeded,
     failed,
     cancelled,
     building,
-    disconnected // ?
 };
 
 enum class connection_state_type
 {
     connected,
-    disconnected
+    disconnected,
 };
-
-void set_tray_icon(state_type state);
-void set_icon_tooltip(const std::string &aToolTip);
 
 #endif
 

@@ -3,7 +3,7 @@
 #ifndef JFC_TRAVIS_CI_CANARY_NOTIFICATION_H
 #define JFC_TRAVIS_CI_CANARY_NOTIFICATION_H
 
-#include <jfc/travis_ci_canary/delete_me.h>
+#include <jfc/travis_ci_canary/enums.h>
 
 #include <string>
 
@@ -13,7 +13,7 @@
 namespace jfc::travis_ci_canary::notify
 {
     /// \brief notify that a build's state has changed. e.g: building to succeeded
-    void build_state_changed(const std::string &aRepoURL, state_type state);
+    void build_state_changed(const std::string &aRepoURL, build_state_type state);
 
     /// \brief notify that the program has just lost/gained connection to travis api
     void connection_state_changed(connection_state_type state);

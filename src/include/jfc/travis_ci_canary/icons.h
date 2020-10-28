@@ -14,6 +14,10 @@ namespace jfc
     GdkPixbuf *get_building_icon_image();
 
     GdkPixbuf *get_disconnected_icon_image();
+    
+    GdkPixbuf *get_disconnected_icon_image();
+
+    GdkPixbuf *get_init_icon_image();
 }
 
 #endif

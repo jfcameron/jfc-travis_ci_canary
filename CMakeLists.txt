@@ -43,8 +43,10 @@ jfc_project(executable
         ${CMAKE_CURRENT_SOURCE_DIR}/src/icon.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/notification.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/request.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-building.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-error.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-init.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-no_connection.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/travis-ci-32-ok.cpp
 
