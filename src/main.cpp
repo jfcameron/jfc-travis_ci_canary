@@ -73,7 +73,7 @@ static size_t WriteMemoryCallback(void *const contentPointer,
 /////////////////////////////////////////////////////////
 void do_request(std::string aTravisToken, response_handler_type aHandler)
 {
-    std::string aURL("https://api.travis-ci.org/builds?limit=50&sort_by=started_at:desc");
+    std::string aURL("https://api.travis-ci.org/builds?limit=25&sort_by=started_at:desc");
 
     curl_global_init(CURL_GLOBAL_ALL);
 
@@ -124,10 +124,34 @@ void do_request(std::string aTravisToken, response_handler_type aHandler)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                       MAIN.CPP
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// \brief converts a string comtaining ISO8601 formatted date to a std::time_t (epoch)
+std::time_t iso8601_to_time_t(const std::string &aDate)
+{
+    //TODO: throw is aDate format is not 8601
+
+    int y,M,d,h,m;
+    float s;
+
+    sscanf(aDate.c_str(), 
+        "%d-%d-%dT%d:%d:%fZ", 
+        &y, &M, &d, &h, &m, &s);
+
+    std::tm time;
+
+    time.tm_year = y - 1900; // Year since 1900
+    time.tm_mon = M - 1;     // 0-11
+    time.tm_mday = d;        // 1-31
+    time.tm_hour = h;        // 0-23
+    time.tm_min = m;         // 0-59
+    time.tm_sec = static_cast<int>(s); // 0-60
+
+    std::time_t unix_time = std::mktime(&time);
+
+    return unix_time;
+}
+
 void response_handler(std::vector<unsigned char> output)
 {
-    //std::vector<unsigned char> output(chunk.memory, chunk.memory + chunk.size); //arg?
-
     struct build_info
     {
         state_type state;
@@ -161,27 +185,7 @@ void response_handler(std::vector<unsigned char> output)
             ? std::string(build["repository"]["name"])
             : "unknown";
 
-
-        //TODO: assert 8601 format in string
-
-        // Converting ISO8601 string to std::tm to std::time_t (unix time)
-        int y,M,d,h,m;
-        float s;
-
-        sscanf(std::string(committed_at).c_str(), 
-            "%d-%d-%dT%d:%d:%fZ", 
-            &y, &M, &d, &h, &m, &s);
-
-        std::tm time;
-
-        time.tm_year = y - 1900; // Year since 1900
-        time.tm_mon = M - 1;     // 0-11
-        time.tm_mday = d;        // 1-31
-        time.tm_hour = h;        // 0-23
-        time.tm_min = m;         // 0-59
-        time.tm_sec = static_cast<int>(s); // 0-60
-
-        std::time_t unix_time = std::mktime(&time);
+        std::time_t unix_time = iso8601_to_time_t(committed_at);
 
         // Insert this data IF it is more recent than what is already there
         auto search = build_info_set.find(std::string(repo_name)); 
@@ -225,6 +229,8 @@ void response_handler(std::vector<unsigned char> output)
         }
     }
 
+    // TODO: consider adding repo names to the tooltips
+    // TODO: consider adding a on_clicked functor
     if (state == state_type::succeeded) jfc::travis_ci_canary::icon::set_icon_tooltip("all builds succeeded");
     else if (state == state_type::building) jfc::travis_ci_canary::icon::set_icon_tooltip("building");
     else if (state == state_type::failed) jfc::travis_ci_canary::icon::set_icon_tooltip("a build has failed");
