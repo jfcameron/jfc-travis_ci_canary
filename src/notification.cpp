@@ -14,7 +14,7 @@ static GNotification *pNotification;
 
 void static build_failed_notification_behaviour(GSimpleAction*, GVariant*, gpointer)
 {
-    //TODO: open build page for the project?
+    std::cout << "build_failed_notification_behaviour unimplemented\n";
 }
 
 void static init_once()

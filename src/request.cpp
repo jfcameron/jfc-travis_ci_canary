@@ -77,7 +77,7 @@ void jfc::travis_ci_canary::request::builds(std::string aTravisToken,
         {
             .memory = []()
             {
-                if (auto pHeap = static_cast<char *>(malloc(1))) return pHeap;
+                if (auto pHeap = static_cast<char *>(std::malloc(1))) return pHeap;
                 else throw std::runtime_error("could not allocate space on the heap");
             }(),
             .size = 0

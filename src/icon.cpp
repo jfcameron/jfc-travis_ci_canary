@@ -30,7 +30,7 @@ static void init_once()
 //Either param this at build time like what follows, or load the program name from a config file, with a reasonable default
 // based on the compiler used
 //#ifdef LAUNCH_OPTION_XDG_OPEN
-                system("xdg-open https://travis-ci.org/github/jfcameron");
+                system("xdg-open https://travis-ci.org/github/jfcameron"); //TODO: construct this url using api /user
 //#else if LAUNCH_OPTION_APPLE_OPEN
 // sysy("open ...
 //#else ....

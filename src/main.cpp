@@ -123,8 +123,6 @@ void response_handler(std::vector<unsigned char> output)
         }
     }
 
-    // TODO: consider adding repo names to the tooltips
-    // TODO: consider adding a on_clicked functor
     if (state == build_state_type::succeeded) jfc::travis_ci_canary::icon::set_icon_tooltip("all builds succeeded");
     else if (state == build_state_type::building) jfc::travis_ci_canary::icon::set_icon_tooltip("building");
     else if (state == build_state_type::failed) jfc::travis_ci_canary::icon::set_icon_tooltip("a build has failed");

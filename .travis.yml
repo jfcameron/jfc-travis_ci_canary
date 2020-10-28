@@ -18,6 +18,8 @@ matrix:
           packages:
             - cmake
             - git
+            - libgtk-3-dev
+            - curl
       script:
         - |
           cd workspace
