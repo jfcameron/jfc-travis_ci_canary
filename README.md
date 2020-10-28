@@ -10,3 +10,6 @@ Clicking the icon will open your build list in a browser.
 
 Notifications are emitted whenever a new build starts/stops, displaying the project name and new build state.
 
+### project state
+
+application works but has no configuration or help documentation. travis ci token is provided via arg. all messages are english. currently working on config, likely ~/.config/travis-ci_canary/conf.json
