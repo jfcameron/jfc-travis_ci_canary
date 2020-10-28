@@ -2,4 +2,11 @@
 
 ## jfc-travis_ci_canary
 
-sysicon, alert if error in build list. See demo/ for usage.
+Linux system tray icon that monitors your recent travis-ci builds.
+
+Icon graphic indicates: all builds succeeded, build list contains an ongoing build, build list contains a failure, or there is a network connection issue.
+
+Clicking the icon will open your build list in a browser.
+
+Notifications are emitted whenever a new build starts/stops, displaying the project name and new build state.
+
