@@ -1,4 +1,4 @@
-#include <jfc/icons.h>
+#include <jfc/travis_ci_canary/icons.h>
 
 #include <mutex>
 
