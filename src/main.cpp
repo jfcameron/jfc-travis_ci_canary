@@ -13,6 +13,8 @@
 #include <jfc/travis_ci_canary/notification.h>
 #include <jfc/travis_ci_canary/request.h>
 
+#include <travisci_canary/buildinfo.h>
+
 /// \brief converts a string containing ISO8601 formatted date to a std::time_t (epoch)
 std::time_t iso8601_to_time_t(const std::string &aDate)
 {
@@ -174,27 +176,40 @@ int main(int argc, char *argv[])
 {
     try
     {
-        config::try_load_config_file();
+        if (argc <= 1)
+        {
+            config::try_load_config_file();
 
-        gtk_init(&argc, &argv);
+            gtk_init(&argc, &argv);
 
-        icon::set_default_icon();
-        
-        // this allows gtk_main to get called before update work starts, 
-        // so the default icon will render immediately on application start
-        g_timeout_add_seconds(1, [](void *const vp) 
+            icon::set_default_icon();
+            
+            // this allows gtk_main to get called before update work starts, 
+            // so the default icon will render immediately on application start
+            g_timeout_add_seconds(1, [](void *const vp) 
+                {
+                    auto token = reinterpret_cast<std::string *>(vp);
+
+                    update();
+                    
+                    g_timeout_add_seconds(15, reinterpret_cast<GSourceFunc>(update), nullptr);
+
+                    return int(0);
+                }, 
+                nullptr);
+           
+            gtk_main();
+        }
+        else
+        {
+            std::vector<std::string> args(argv, argv + argc);
+
+            if (args[1] == "-h" || args[1] == "--help")
             {
-                auto token = reinterpret_cast<std::string *>(vp);
-
-                update();
-                
-                g_timeout_add_seconds(15, reinterpret_cast<GSourceFunc>(update), nullptr);
-
-                return int(0);
-            }, 
-            nullptr);
-       
-        gtk_main();
+                std::cout << "git hash: " << travisci_canary_BuildInfo_Git_Commit 
+                << ", build date: " << travisci_canary_BuildInfo_Git_Date << "\n";
+            }
+        }
     }
     catch (const std::runtime_error &e)
     {
