@@ -71,9 +71,10 @@ void response_handler(std::vector<unsigned char> output)
         if (!build["commit"].is_object()) 
             throw std::runtime_error("travis response malformed: build does not contain commit object");
 
-        const auto committed_at = build["commit"]["committed_at"].is_string()
+        const auto committed_at = /*build["commit"]["committed_at"].is_string()
             ? std::string(build["commit"]["committed_at"])
-            : "unknown";
+            : "unknown";*/
+            build["updated_at"];
 
         const auto commit_sha = build["commit"]["sha"].is_string()
             ? std::string(build["commit"]["sha"])
