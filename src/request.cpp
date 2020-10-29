@@ -59,6 +59,8 @@ static void init_once()
             std::string(std::string("Authorization: token ") + config::get_travis_token()).c_str());
         curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headerlist);
 
+        curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, 10L);
+
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
     }
 }

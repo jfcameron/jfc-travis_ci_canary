@@ -43,19 +43,32 @@ std::time_t iso8601_to_time_t(const std::string &aDate)
 
 using namespace jfc::travis_ci_canary;
 
+/// \brief datamodel of a single travis-ci build
+///
+/// contains only the properties that are important to the
+/// application. populated by the response handler below
 struct build_info
 {
+    /// \brief state of the build. e.g: building, failed, ...
     build_state_type state;
     
+    /// \brief 8601 timecode, used to sort
     std::time_t time;
+
+    /// \brief name of the git project the build job is/was for
+    std::string repo_name;
 };
 
-// TODO: use "id" property so key can be int instead of string for average performance boost
-std::unordered_map</*repo name*/std::string, build_info> last_build_info_set;
+/// \brief map of 
+using build_info_map_type = std::unordered_map<size_t, build_info>;
+
+build_info_map_type last_build_info_collection;
 
 void response_handler(std::vector<unsigned char> output)
 {
-    std::unordered_map</*repo name*/std::string, build_info> current_build_info_set;
+    std::cout << "void response_handler()\n";
+
+    build_info_map_type current_build_info_collection;
 
     using namespace nlohmann;
 
@@ -63,13 +76,17 @@ void response_handler(std::vector<unsigned char> output)
 
     const auto builds = root["builds"];
 
-    if (!builds.is_array()) throw std::runtime_error("travis response malformed: does not contain builds array");
+    if (!builds.is_array()) throw std::runtime_error("travis response malformed: "
+        "does not contain builds array");
 
     for (const auto &build : builds)
     {
-        const auto state = build["state"].is_string()
-            ? std::string(build["state"]) 
-            : "failed";
+        const auto state = [&element = build["state"]]
+        {
+            return element.is_string()
+                ? std::string(element) 
+                : "failed";
+        }();
 
         const auto time_stamp = [&json_time = build["updated_at"]]()
         {
@@ -79,23 +96,37 @@ void response_handler(std::vector<unsigned char> output)
             return json_time;
         }();
 
-        if (!build["commit"].is_object()) 
-            throw std::runtime_error("travis response malformed: build does not contain commit object");
+        if (!build["commit"].is_object()) throw std::runtime_error("travis response malformed: "
+            "build does not contain commit object");
 
-        const auto commit_sha = build["commit"]["sha"].is_string()
-            ? std::string(build["commit"]["sha"])
-            : "unknown";
+        const auto commit_sha = [&element = build["commit"]["sha"]]
+        {
+            return element.is_string()
+                ? std::string(element)
+                : "unknown";
+        }();
 
-        if (!build["repository"].is_object()) 
-            throw std::runtime_error("travis response malformed: build does not contain repository object");
+        if (!build["repository"].is_object()) throw std::runtime_error("travis response malformed: "
+            "build does not contain repository object");
 
-        const auto repo_name = build["repository"]["name"].is_string()
-            ? std::string(build["repository"]["name"])
-            : "unknown";
+        const auto id = [&element = build["repository"]["id"]]()
+        {
+            if (!element.is_number()) throw std::runtime_error("travis response malformed: "
+                "build does not have a number property named \"id\"");
+
+            return size_t(element);
+        }();
+
+        const auto repo_name = [&element = build["repository"]["name"]]()
+        {
+            return element.is_string() 
+                ? std::string(element) 
+                : "unknown";
+        }();
 
         std::time_t unix_time = iso8601_to_time_t(time_stamp);
         
-        auto search = current_build_info_set.find(repo_name); 
+        auto search = current_build_info_collection.find(id); 
         {
             build_info newinfo = {
                 [](std::string aState)
@@ -111,30 +142,32 @@ void response_handler(std::vector<unsigned char> output)
                     throw std::invalid_argument(std::string("unhandled state type: ").append(aState));
                 }(state),
 
-                unix_time
+                unix_time,
+
+                repo_name
             };
 
             // first entry case
-            if (search == current_build_info_set.end()) 
+            if (search == current_build_info_collection.end()) 
             {
-                current_build_info_set[repo_name] = newinfo;
+                current_build_info_collection[id] = newinfo;
             }
             // newer available: unfortunately the API very occasionally returns things out of order
-            else if (search !=  current_build_info_set.end() && search->second.time < newinfo.time) 
+            else if (search !=  current_build_info_collection.end() && search->second.time < newinfo.time) 
             {
-                current_build_info_set[repo_name] = newinfo;
+                current_build_info_collection[id] = newinfo;
             }
         }
     }
 
     build_state_type state = build_state_type::succeeded;
 
-    for (const auto &[key, value] : current_build_info_set)
+    for (const auto &[key, value] : current_build_info_collection)
     {
         // Notifications
-        if (auto last_search = last_build_info_set.find(key); last_search != last_build_info_set.end())
+        if (auto last_search = last_build_info_collection.find(key); last_search != last_build_info_collection.end())
         {
-            if (last_search->second.state != value.state) notify::build_state_changed(key, value.state);
+            if (last_search->second.state != value.state) notify::build_state_changed(value.repo_name, value.state);
         }
 
         // Icon graphic
@@ -160,11 +193,13 @@ void response_handler(std::vector<unsigned char> output)
 
     jfc::travis_ci_canary::icon::set_graphic(state);
 
-    last_build_info_set = current_build_info_set;
+    last_build_info_collection = current_build_info_collection;
 }
 
 void failed_handler()
 {
+    std::cout << "void failed_handler()\n";
+
     icon::set_graphic(connection_state_type::disconnected);
 
     icon::set_tooltip("disconnected");
@@ -172,6 +207,8 @@ void failed_handler()
 
 bool update()
 {
+    std::cout << "update\n";
+
     request::builds(&response_handler, &failed_handler);
 
     return true;
