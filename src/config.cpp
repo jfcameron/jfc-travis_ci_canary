@@ -2,6 +2,8 @@
 
 #include <jfc/travis_ci_canary/config.h>
 
+#include <travisci_canary/buildinfo.h>
+
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -13,13 +15,21 @@ using namespace jfc::travis_ci_canary;
 
 namespace fs = std::filesystem;
 
-static std::string travis_token = ""; //TODO: remove
+static std::string travis_token = "";
 
 static std::string account_name = "";
 
 static std::string api_root = "https://api.travis-ci.org/";
 
-static std::string browser_command = "xdg-open";
+// Try to give a reasonable default browser command. 
+static std::string browser_command = 
+#if defined JFC_TARGET_PLATFORM_Linux
+    "xdg-open";
+#elif defined JFC_TARGET_PLATFORM_Darwin
+    "open";
+#else
+    "firefox";
+#endif
 
 std::string jfc::travis_ci_canary::config::get_travis_token()
 {
@@ -41,12 +51,15 @@ std::string jfc::travis_ci_canary::config::get_browser_command()
     return browser_command;
 }
 
-//#ifdef LINUX or DARWIN or ms submodule? or ... posix...
-static const std::string config_directory(std::string(std::getenv("HOME"))
-    .append("/.config/travis_ci_canary/"));
-//#else if def MSVC
-// C:\user\USER\localdata\...
-//#endif
+// Path to the config file will vary if non POSIX platforms are supported
+const std::string config_directory =
+#if defined JFC_TARGET_PLATFORM_Linux || defined JFC_TARGET_PLATFORM_Darwin //...
+    std::string(std::getenv("HOME")).append("/.config/travis_ci_canary/");
+//#elif defined JFC_TARGET_PLATFORM_Windows
+    //windows api to get user's appdata path...
+#else
+#error "unsupported platform"
+#endif
 
 static const std::string config_filename("conf.json");
 

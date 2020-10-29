@@ -18,7 +18,7 @@ PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
 FIND_PACKAGE(CURL REQUIRED)
 
 jfc_project(executable
-    NAME "jfctraviscicanary"
+    NAME "travisci_canary"
     VERSION 0.0
     DESCRIPTION "gtk sysicon, alert if error in recent build list"
     C++_STANDARD 17
