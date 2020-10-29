@@ -15,17 +15,22 @@
 
 #include <travisci_canary/buildinfo.h>
 
-/// \brief converts a string containing ISO8601 formatted date to a std::time_t (epoch)
+/// \brief converts a string containing a very specific form of ISO8601 date string to a std::time_t (epoch)
+///
+/// format is: year-month-dayThour:minute:secondZ
+/// iso8601 format is larger than what this function can accept. This is not a general solution
 std::time_t iso8601_to_time_t(const std::string &aDate)
 {
-    //TODO: throw if aDate format is not 8601
-
     int y,M,d,h,m;
     float s;
 
-    sscanf(aDate.c_str(), 
+    const auto count = std::sscanf(aDate.c_str(), 
         "%d-%d-%dT%d:%d:%fZ", 
         &y, &M, &d, &h, &m, &s);
+
+    if (count != 6) throw std::invalid_argument(std::string(
+        "time string was not expected iso8601 format: ")
+        .append(aDate));
 
     std::tm time;
 
@@ -59,11 +64,13 @@ struct build_info
     std::string repo_name;
 };
 
-/// \brief map of 
+/// \brief collection contains the most recent build job for each project
+/// that was found in the recent build list
 using build_info_map_type = std::unordered_map<size_t, build_info>;
 
 build_info_map_type last_build_info_collection;
 
+/// \brief successful api response handler
 void response_handler(std::vector<unsigned char> output)
 {
     build_info_map_type current_build_info_collection;
@@ -194,6 +201,7 @@ void response_handler(std::vector<unsigned char> output)
     last_build_info_collection = current_build_info_collection;
 }
 
+/// \brief no api response. Either network issue or api is down
 void failed_handler()
 {
     icon::set_graphic(connection_state_type::disconnected);
@@ -201,6 +209,7 @@ void failed_handler()
     icon::set_tooltip("disconnected");
 }
 
+/// \brief application update function
 bool update()
 {
     request::builds(&response_handler, &failed_handler);
@@ -208,6 +217,7 @@ bool update()
     return true;
 }
 
+/// \brief application entry point
 int main(int argc, char *argv[])
 {
     try
@@ -242,8 +252,11 @@ int main(int argc, char *argv[])
 
             if (args[1] == "-h" || args[1] == "--help")
             {
-                std::cout << "git hash: " << travisci_canary_BuildInfo_Git_Commit 
-                    << ", build date: " << travisci_canary_BuildInfo_Git_Date << "\n";
+                std::cout << std::string(travisci_canary_BuildInfo_ProjectName)
+                    << " is a program that monitors your recent and on-going travis-ci builds\n"
+                    << "project: https://github.com/jfcameron/jfc-travis_ci_canary\n"
+                    << "build git hash: " << travisci_canary_BuildInfo_Git_Commit << "\n"
+                    << "build date: " << travisci_canary_BuildInfo_Git_Date << "\n";
             }
         }
     }
