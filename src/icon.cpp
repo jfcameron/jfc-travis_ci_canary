@@ -1,5 +1,6 @@
 // © 2020 Joseph Cameron - All Rights Reserved
 
+#include <jfc/travis_ci_canary/config.h>
 #include <jfc/travis_ci_canary/icon.h>
 #include <jfc/travis_ci_canary/icons.h>
 
@@ -7,6 +8,8 @@
 
 #include <mutex>
 #include <iostream>
+
+using namespace jfc::travis_ci_canary;
 
 static GtkStatusIcon *tray_icon;
 
@@ -27,15 +30,10 @@ static void init_once()
         g_signal_connect(G_OBJECT(tray_icon), 
             "activate", 
             G_CALLBACK([](){
-//Either param this at build time like what follows, or load the program name from a config file, with a reasonable default
-// based on the compiler used
-//#ifdef LAUNCH_OPTION_XDG_OPEN
-                system("xdg-open https://travis-ci.org/github/jfcameron"); //TODO: construct this url using api /user
-//#else if LAUNCH_OPTION_APPLE_OPEN
-// sysy("open ...
-//#else ....
-//#endif
-            }),
+                system(std::string(config::get_browser_command())
+                    .append(" ")
+                    .append("https://travis-ci.org/github/" + config::get_account_name())
+                    .c_str());}),
             nullptr
         );
     }
@@ -92,3 +90,4 @@ void jfc::travis_ci_canary::icon::set_icon_tooltip(const std::string &aToolTip)
 
     gtk_status_icon_set_tooltip_text(tray_icon, aToolTip.c_str());
 }
+

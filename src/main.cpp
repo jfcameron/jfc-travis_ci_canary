@@ -13,7 +13,7 @@
 #include <jfc/travis_ci_canary/notification.h>
 #include <jfc/travis_ci_canary/request.h>
 
-/// \brief converts a string comtaining ISO8601 formatted date to a std::time_t (epoch)
+/// \brief converts a string containing ISO8601 formatted date to a std::time_t (epoch)
 std::time_t iso8601_to_time_t(const std::string &aDate)
 {
     //TODO: throw if aDate format is not 8601
@@ -60,11 +60,16 @@ void response_handler(std::vector<unsigned char> output)
 
     const auto builds = root["builds"];
 
+    if (!builds.is_array()) throw std::runtime_error("travis response malformed: does not contain builds array");
+
     for (const auto &build : builds)
     {
         const auto state = build["state"].is_string()
             ? std::string(build["state"]) 
             : "failed";
+
+        if (!build["commit"].is_object()) 
+            throw std::runtime_error("travis response malformed: build does not contain commit object");
 
         const auto committed_at = build["commit"]["committed_at"].is_string()
             ? std::string(build["commit"]["committed_at"])
@@ -73,6 +78,9 @@ void response_handler(std::vector<unsigned char> output)
         const auto commit_sha = build["commit"]["sha"].is_string()
             ? std::string(build["commit"]["sha"])
             : "unknown";
+
+        if (!build["repository"].is_object()) 
+            throw std::runtime_error("travis response malformed: build does not contain repository object");
 
         const auto repo_name = build["repository"]["name"].is_string()
             ? std::string(build["repository"]["name"])
@@ -140,39 +148,51 @@ void failed_handler()
     icon::set_icon_tooltip("disconnected");
 }
 
-bool update(std::string *aTravisToken)
+bool update()
 {
-    request::builds(*aTravisToken, &response_handler, &failed_handler);
+    request::builds(&response_handler, &failed_handler);
 
     return true;
 }
 
 int main(int argc, char *argv[])
 {
-    if (argc < 2) throw std::invalid_argument("need 1 arg: the travis token");
+    try
+    {
+        config::try_load_config_file();
 
-    std::string travisToken = argv[1];
-    config::aTravisToken = travisToken;
+        gtk_init(&argc, &argv);
 
-    gtk_init(&argc, &argv);
+        icon::set_default_icon();
+        
+        // this allows gtk_main to get called before update work starts, 
+        // so the default icon will render immediately on application start
+        g_timeout_add_seconds(1, [](void *const vp) 
+            {
+                auto token = reinterpret_cast<std::string *>(vp);
 
-    icon::set_default_icon();
-    
-    // this allows gtk_main to get called before update work starts, 
-    // so the default icon will render immediately on application start
-    g_timeout_add_seconds(1, [](void *const vp) 
-        {
-            auto token = reinterpret_cast<std::string *>(vp);
+                update();
+                
+                g_timeout_add_seconds(15, reinterpret_cast<GSourceFunc>(update), nullptr);
 
-            update(token);
-            
-            g_timeout_add_seconds(15, reinterpret_cast<GSourceFunc>(update), token);
-
-            return int(0);
-        }, 
-        &travisToken);
-   
-    gtk_main();
+                return int(0);
+            }, 
+            nullptr);
+       
+        gtk_main();
+    }
+    catch (const std::runtime_error &e)
+    {
+        std::cerr << "error: " << e.what() << std::endl;
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "error: " << e.what() << std::endl;
+    }
+    catch (...)
+    {
+        std::cerr << "error: unhandled exception" << std::endl;
+    }
 
     return EXIT_SUCCESS;
 }

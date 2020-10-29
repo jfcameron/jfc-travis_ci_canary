@@ -20,7 +20,7 @@ namespace jfc::travis_ci_canary::request
     using failed_handler_type = std::function<void()>;
 
     /// \brief retrieves a list of recent builds from the travis-ci api
-    void builds(std::string aTravisToken, response_handler_type aSucceededHandler,
+    void builds(response_handler_type aSucceededHandler,
         failed_handler_type aFailedHandler);
 }
 
