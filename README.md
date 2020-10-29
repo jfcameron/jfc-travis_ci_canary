@@ -10,6 +10,10 @@ Clicking the icon will open your build list in a browser.
 
 Notifications are emitted whenever a new build starts/stops, displaying the project name and new build state.
 
-### project state
+### Building
 
-application works but has no configuration or help documentation. travis ci token is provided via arg. all messages are english. currently working on config, likely ~/.config/travis-ci_canary/conf.json
+refer to the .travis.yml file in the root of the repository.
+
+### How to use
+
+The first time the program is run, it will create a config file, print the path to the file and then exit. The user must write their travis-ci username and a travis-ci api token into this file for the application to run normally.
