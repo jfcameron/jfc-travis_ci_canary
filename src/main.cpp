@@ -66,8 +66,6 @@ build_info_map_type last_build_info_collection;
 
 void response_handler(std::vector<unsigned char> output)
 {
-    std::cout << "void response_handler()\n";
-
     build_info_map_type current_build_info_collection;
 
     using namespace nlohmann;
@@ -198,8 +196,6 @@ void response_handler(std::vector<unsigned char> output)
 
 void failed_handler()
 {
-    std::cout << "void failed_handler()\n";
-
     icon::set_graphic(connection_state_type::disconnected);
 
     icon::set_tooltip("disconnected");
@@ -207,8 +203,6 @@ void failed_handler()
 
 bool update()
 {
-    std::cout << "update\n";
-
     request::builds(&response_handler, &failed_handler);
 
     return true;
