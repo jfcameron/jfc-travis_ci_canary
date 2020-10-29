@@ -68,13 +68,16 @@ void response_handler(std::vector<unsigned char> output)
             ? std::string(build["state"]) 
             : "failed";
 
+        const auto time_stamp = [&json_time = build["updated_at"]]()
+        {
+            if (!json_time.is_string()) throw std::runtime_error("travis response malformed: "
+                "build does not contain required timestamp");
+
+            return json_time;
+        }();
+
         if (!build["commit"].is_object()) 
             throw std::runtime_error("travis response malformed: build does not contain commit object");
-
-        const auto committed_at = /*build["commit"]["committed_at"].is_string()
-            ? std::string(build["commit"]["committed_at"])
-            : "unknown";*/
-            build["updated_at"];
 
         const auto commit_sha = build["commit"]["sha"].is_string()
             ? std::string(build["commit"]["sha"])
@@ -87,7 +90,7 @@ void response_handler(std::vector<unsigned char> output)
             ? std::string(build["repository"]["name"])
             : "unknown";
 
-        std::time_t unix_time = iso8601_to_time_t(committed_at);
+        std::time_t unix_time = iso8601_to_time_t(time_stamp);
         
         auto search = current_build_info_set.find(repo_name); 
         {
