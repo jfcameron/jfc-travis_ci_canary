@@ -16,4 +16,4 @@ refer to the .travis.yml file in the root of the repository.
 
 ### How to use
 
-The first time the program is run, it will create a config file, print the path to the file and then exit. The user must write their travis-ci username and a travis-ci api token into this file for the application to run normally.
+The first time the program is run it will create a config file, print the path to the file and then exit. The user must write their travis-ci username and a travis-ci api token into this file for the application to run normally.
