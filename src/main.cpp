@@ -50,6 +50,7 @@ struct build_info
     std::time_t time;
 };
 
+// TODO: use "id" property so key can be int instead of string for average performance boost
 std::unordered_map</*repo name*/std::string, build_info> last_build_info_set;
 
 void response_handler(std::vector<unsigned char> output)
@@ -182,7 +183,7 @@ int main(int argc, char *argv[])
     {
         if (argc <= 1)
         {
-            config::try_load_config_file();
+            config::load_config_file();
 
             gtk_init(&argc, &argv);
 

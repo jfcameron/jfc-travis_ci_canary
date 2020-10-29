@@ -5,12 +5,12 @@
 
 #include <cstdlib>
 #include <cstring>
-#include <map>
-#include <stdexcept>
-#include <vector>
-#include <memory>
 #include <iostream>
 #include <iterator>
+#include <map>
+#include <memory>
+#include <stdexcept>
+#include <vector>
 
 #include <curl/curl.h>
 
@@ -51,7 +51,7 @@ static void init_once()
 
         // Configure the builds request
         curl_easy_setopt(curl_handle, CURLOPT_URL, 
-            std::string(jfc::travis_ci_canary::config::get_api_root() + "builds?limit=25&sort_by=started_at:desc").c_str());
+            std::string("https://api.travis-ci.org/builds?limit=25&sort_by=started_at:desc").c_str());
         curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
         curl_slist *headerlist = curl_slist_append(nullptr, "Travis-API-Version: 3");

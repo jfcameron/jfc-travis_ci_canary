@@ -19,8 +19,6 @@ static std::string travis_token = "";
 
 static std::string account_name = "";
 
-static std::string api_root = "https://api.travis-ci.org/";
-
 // Try to give a reasonable default browser command. 
 static std::string browser_command = 
 #if defined JFC_TARGET_PLATFORM_Linux
@@ -39,11 +37,6 @@ std::string jfc::travis_ci_canary::config::get_travis_token()
 std::string jfc::travis_ci_canary::config::get_account_name()
 {
     return account_name;
-}
-
-std::string jfc::travis_ci_canary::config::get_api_root()
-{
-    return api_root;
 }
 
 std::string jfc::travis_ci_canary::config::get_browser_command()
@@ -67,7 +60,7 @@ static const std::string config_path(config_directory + config_filename);
     
 using namespace nlohmann;
 
-void jfc::travis_ci_canary::config::try_load_config_file()
+void jfc::travis_ci_canary::config::load_config_file()
 {
     if (!fs::exists(config_path)) 
     {
@@ -87,7 +80,6 @@ void jfc::travis_ci_canary::config::try_load_config_file()
         // Deserialization
         travis_token = root["travis_token"];
         account_name = root["account_name"];
-        api_root = root["api_root"];
         browser_command = root["browser_command"];
 
         std::string error_string;
@@ -122,7 +114,6 @@ void jfc::travis_ci_canary::config::save_config_file()
     // Serialization
     root["travis_token"] = travis_token;
     root["account_name"] = account_name;
-    root["api_root"] = api_root;
     root["browser_command"] = browser_command;
 
     ofs << root.dump(4, ' ');
