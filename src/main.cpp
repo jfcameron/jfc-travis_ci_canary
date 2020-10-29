@@ -88,8 +88,8 @@ void response_handler(std::vector<unsigned char> output)
             : "unknown";
 
         std::time_t unix_time = iso8601_to_time_t(committed_at);
-
-        if (auto search = current_build_info_set.find(repo_name); search == current_build_info_set.end())
+        
+        auto search = current_build_info_set.find(repo_name); 
         {
             build_info newinfo = {
                 [](std::string aState)
@@ -108,11 +108,15 @@ void response_handler(std::vector<unsigned char> output)
                 unix_time
             };
 
-            current_build_info_set[repo_name] = newinfo;
-
-            if (auto last_search = last_build_info_set.find(repo_name); last_search != last_build_info_set.end())
+            // first entry case
+            if (search == current_build_info_set.end()) 
             {
-                if (last_search->second.state != newinfo.state) notify::build_state_changed(repo_name, newinfo.state);
+                current_build_info_set[repo_name] = newinfo;
+            }
+            // newer available: unfortunately the API very occasionally returns things out of order
+            else if (search !=  current_build_info_set.end() && search->second.time < newinfo.time) 
+            {
+                current_build_info_set[repo_name] = newinfo;
             }
         }
     }
@@ -121,6 +125,13 @@ void response_handler(std::vector<unsigned char> output)
 
     for (const auto &[key, value] : current_build_info_set)
     {
+        // Notifications
+        if (auto last_search = last_build_info_set.find(key); last_search != last_build_info_set.end())
+        {
+            if (last_search->second.state != value.state) notify::build_state_changed(key, value.state);
+        }
+
+        // Icon graphic
         if (value.state == build_state_type::building) 
         {
             state = build_state_type::building;
