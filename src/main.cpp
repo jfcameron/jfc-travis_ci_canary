@@ -149,20 +149,24 @@ void response_handler(std::vector<unsigned char> output)
         }
     }
 
-    if (state == build_state_type::succeeded) jfc::travis_ci_canary::icon::set_icon_tooltip("all builds succeeded");
-    else if (state == build_state_type::building) jfc::travis_ci_canary::icon::set_icon_tooltip("building");
-    else if (state == build_state_type::failed) jfc::travis_ci_canary::icon::set_icon_tooltip("a build has failed");
+    // Icon tooltip
+    if (state == build_state_type::succeeded) 
+        jfc::travis_ci_canary::icon::set_tooltip("all builds succeeded");
+    else if (state == build_state_type::building) 
+        jfc::travis_ci_canary::icon::set_tooltip("building");
+    else if (state == build_state_type::failed) 
+        jfc::travis_ci_canary::icon::set_tooltip("a build has failed");
 
-    jfc::travis_ci_canary::icon::set_tray_icon(state);
+    jfc::travis_ci_canary::icon::set_graphic(state);
 
     last_build_info_set = current_build_info_set;
 }
 
 void failed_handler()
 {
-    icon::set_tray_icon(connection_state_type::disconnected);
+    icon::set_graphic(connection_state_type::disconnected);
 
-    icon::set_icon_tooltip("disconnected");
+    icon::set_tooltip("disconnected");
 }
 
 bool update()
@@ -182,7 +186,7 @@ int main(int argc, char *argv[])
 
             gtk_init(&argc, &argv);
 
-            icon::set_default_icon();
+            icon::set_default_graphic();
             
             // this allows gtk_main to get called before update work starts, 
             // so the default icon will render immediately on application start
@@ -207,7 +211,7 @@ int main(int argc, char *argv[])
             if (args[1] == "-h" || args[1] == "--help")
             {
                 std::cout << "git hash: " << travisci_canary_BuildInfo_Git_Commit 
-                << ", build date: " << travisci_canary_BuildInfo_Git_Date << "\n";
+                    << ", build date: " << travisci_canary_BuildInfo_Git_Date << "\n";
             }
         }
     }

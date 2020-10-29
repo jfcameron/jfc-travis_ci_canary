@@ -23,7 +23,7 @@ static void init_once()
 
         tray_icon = gtk_status_icon_new();
 
-        jfc::travis_ci_canary::icon::set_tray_icon(build_state_type::failed);
+        icon::set_graphic(build_state_type::failed);
 
         gtk_status_icon_set_visible (tray_icon, TRUE);
 
@@ -41,7 +41,7 @@ static void init_once()
     return;
 }
 
-void jfc::travis_ci_canary::icon::set_tray_icon(build_state_type state)
+void jfc::travis_ci_canary::icon::set_graphic(build_state_type state)
 {
     init_once();
 
@@ -59,11 +59,11 @@ void jfc::travis_ci_canary::icon::set_tray_icon(build_state_type state)
             gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_ok_icon_image());
             break;
 
-        default: throw std::invalid_argument("set_tray_icon, unhandled state");
+        default: throw std::invalid_argument("set_graphic, unhandled state");
     }
 }
 
-void jfc::travis_ci_canary::icon::set_tray_icon(connection_state_type state)
+void jfc::travis_ci_canary::icon::set_graphic(connection_state_type state)
 {
     init_once();
    
@@ -77,14 +77,14 @@ void jfc::travis_ci_canary::icon::set_tray_icon(connection_state_type state)
     }
 }
 
-void jfc::travis_ci_canary::icon::set_default_icon()
+void jfc::travis_ci_canary::icon::set_default_graphic()
 {
     init_once();
     
     gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_init_icon_image()); 
 }
 
-void jfc::travis_ci_canary::icon::set_icon_tooltip(const std::string &aToolTip)
+void jfc::travis_ci_canary::icon::set_tooltip(const std::string &aToolTip)
 {
     init_once();
 
