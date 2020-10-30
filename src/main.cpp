@@ -131,37 +131,36 @@ void response_handler(std::vector<unsigned char> output)
 
         std::time_t unix_time = iso8601_to_time_t(time_stamp);
         
-        auto search = current_build_info_collection.find(id); 
+        auto search = current_build_info_collection.find(id);
+
+        build_info newinfo = {
+            [](std::string aState)
+            {
+                if (aState == "passed") return build_state_type::succeeded;
+                if (aState == "failed") return build_state_type::failed;
+                if (aState == "errored") return build_state_type::failed;
+                if (aState == "cancelled") return build_state_type::cancelled;
+                if (aState == "canceled") return build_state_type::cancelled;
+                if (aState == "created") return build_state_type::building;
+                if (aState == "started") return build_state_type::building;
+
+                throw std::invalid_argument(std::string("unhandled state type: ").append(aState));
+            }(state),
+
+            unix_time,
+
+            repo_name
+        };
+
+        // first entry case
+        if (search == current_build_info_collection.end()) 
         {
-            build_info newinfo = {
-                [](std::string aState)
-                {
-                    if (aState == "passed") return build_state_type::succeeded;
-                    if (aState == "failed") return build_state_type::failed;
-                    if (aState == "errored") return build_state_type::failed;
-                    if (aState == "cancelled") return build_state_type::cancelled;
-                    if (aState == "canceled") return build_state_type::cancelled;
-                    if (aState == "created") return build_state_type::building;
-                    if (aState == "started") return build_state_type::building;
-
-                    throw std::invalid_argument(std::string("unhandled state type: ").append(aState));
-                }(state),
-
-                unix_time,
-
-                repo_name
-            };
-
-            // first entry case
-            if (search == current_build_info_collection.end()) 
-            {
-                current_build_info_collection[id] = newinfo;
-            }
-            // newer available: unfortunately the API very occasionally returns things out of order
-            else if (search !=  current_build_info_collection.end() && search->second.time < newinfo.time) 
-            {
-                current_build_info_collection[id] = newinfo;
-            }
+            current_build_info_collection[id] = newinfo;
+        }
+        // newer available: unfortunately the API very occasionally returns things out of order
+        else if (search->second.time < newinfo.time) 
+        {
+            current_build_info_collection[id] = newinfo;
         }
     }
 
