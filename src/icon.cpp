@@ -70,7 +70,7 @@ void jfc::travis_ci_canary::icon::set_graphic(connection_state_type state)
     switch (state)
     {
         case(connection_state_type::disconnected): 
-            gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_building_icon_image()); 
+            gtk_status_icon_set_from_pixbuf(tray_icon, jfc::get_disconnected_icon_image()); 
             return;
         
         case(connection_state_type::connected): return;

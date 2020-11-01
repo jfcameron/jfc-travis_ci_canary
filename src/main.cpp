@@ -197,7 +197,7 @@ int main(int argc, char *argv[])
 
                     update();
                     
-                    g_timeout_add_seconds(15, reinterpret_cast<GSourceFunc>(update), nullptr);
+                    g_timeout_add_seconds(25, reinterpret_cast<GSourceFunc>(update), nullptr);
 
                     return int(0);
                 }, 
