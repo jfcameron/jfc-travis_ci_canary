@@ -55,7 +55,7 @@ matrix:
       addons:
         homebrew:
           packages:
-            - gtk+
+            - gtk+3
       script:
         - |
           cd workspace
