@@ -211,8 +211,13 @@ int main(int argc, char *argv[])
 
             if (args[1] == "-h" || args[1] == "--help")
             {
-                std::cout << "git hash: " << travisci_canary_BuildInfo_Git_Commit 
-                    << ", build date: " << travisci_canary_BuildInfo_Git_Date << "\n";
+                std::cout 
+                    << "=== " << travisci_canary_BuildInfo_ProjectName << " ===" << "\n" 
+                    << "a tray icon application that notifies you of your recent travis-ci builds.\n"
+                    << "=== build info ===\n"
+                    << "project remote: " << travisci_canary_BuildInfo_Git_Remote_URL << "\n"
+                    << "git hash: " << travisci_canary_BuildInfo_Git_Commit << "\n"
+                    << "build date: " << travisci_canary_BuildInfo_Git_Date << "\n";
             }
         }
     }
