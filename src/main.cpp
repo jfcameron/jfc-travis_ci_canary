@@ -15,11 +15,11 @@
 
 #include <travisci_canary/buildinfo.h>
 
-/// \brief converts a string containing ISO8601 formatted date to a std::time_t (epoch)
+/// \brief converts a string containing the specific ISO8601 form emitted by the Travis CI API to a std::time_t (epoch)
+///
+/// \warning this is not a complete solution to ISO8601 -> std::time_t
 std::time_t iso8601_to_time_t(const std::string &aDate)
 {
-    //TODO: throw if aDate format is not 8601
-
     int y,M,d,h,m;
     float s;
 
